@@ -1,6 +1,6 @@
 <?
 /*
-Plugin Name: WP instagram
+Plugin Name: S&F Wordpress instagram
 Description: instagram API Integration for Wordpress
 Version: 0.1
 Author: Schreiber & Freunde GmbH
