@@ -36,25 +36,33 @@ class SfWpInstagram
 
 	function init() {
 
+		$this->oauth_redirect_url = get_bloginfo('url') . '/wp-admin/options-general.php?page=sfwp_instagram_options&sfwp_instagram_action=oauth';
+		$this->url = 'https://api.instagram.com/v1/';
+		$this->url_oauth = 'https://api.instagram.com/oauth/';
+
+		$client_id = get_option('instagram_client_id');
+		$client_secret = get_option('instagram_client_secret');
+
+		$this->client_id = $client_id;
+		$this->client_secret = $client_secret;
+
 		if( isset($_REQUEST['sfwp_instagram_action']) ) {
 			if( $_REQUEST['sfwp_instagram_action'] == 'save_options' ) {
 				$this->save_options();
 			}
+
+			if( $_REQUEST['sfwp_instagram_action'] == 'oauth' ) {
+				$this->oauth();
+			}
 		}
 
-		$this->oauth_redirect_url = get_bloginfo('url') . '/wp-admin/options-general.php?page=sfwp_instagram_options&sfwp_instagram_action=oauth';
-
-		$client_id = get_option('instagram_client_id');
-		$client_secret = get_option('instagram_client_secret');
-		
 		if( $client_id === false || $client_secret === false ) {
 			$this->is_ready = false;
 			add_action('admin_notices', array( &$this, 'admin_notice_missing_account_data'));
 			return;
 		}
 
-		$this->client_id = $client_id;
-		$this->client_secret = $client_secret;
+		
 
 		$access_token = get_option('instagram_access_token');
 
@@ -64,17 +72,10 @@ class SfWpInstagram
 			return;
 		}
 		$this->access_token = $access_token;
-		$this->url = 'https://api.instagram.com/v1/';
-		$this->url_oauth = 'https://api.instagram.com/oauth/';
-		
 
 		if( isset($_REQUEST['sfwp_instagram_action']) ) {
 			if( $_REQUEST['sfwp_instagram_action'] == 'test' ) {
 				$this->test();
-			}
-
-			if( $_REQUEST['sfwp_instagram_action'] == 'oauth' ) {
-				$this->oauth();
 			}
 		}
 	}
@@ -107,6 +108,8 @@ class SfWpInstagram
 	}
 
 	function page_options() {
+		$client_id = get_option('instagram_client_id');
+		$client_secret = get_option('instagram_client_secret');
 		?>
 		<div class="wrap">
 			<h2><? _e('Settings', 'sf_wp_instagram'); ?> › <? _e('mite.', 'sf_wp_instagram') ?></h2>
@@ -116,33 +119,36 @@ class SfWpInstagram
 				<table class="form-table">
 					<tr>
 						<th><label for="instagram_client_id"><? _e('API Client Id', 'sf_wp_instagram') ?></label></th>
-						<td><input name="instagram_client_id" id="instagram_client_id" type="text" value="<? echo get_option('instagram_client_id') ?>" /></td>
+						<td><input name="instagram_client_id" id="instagram_client_id" type="text" value="<? echo $client_id ?>" /></td>
 					</tr>
 					<tr>
 						<th><label for="instagram_client_secret"><? _e('API Client Secret', 'sf_wp_instagram') ?></label></th>
-						<td><input name="instagram_client_secret" id="instagram_client_secret" type="text" value="<? echo get_option('instagram_client_secret') ?>" /></td>
+						<td><input name="instagram_client_secret" id="instagram_client_secret" type="text" value="<? echo $client_secret ?>" /></td>
 					</tr>
 				</table>
 				<p class="submit"><input type="submit" value="<? _e('Save Settings', 'sf_wp_instagram') ?>" class="button-primary" /></p>
 			</form>
 			<?
-			$client_id = get_option('instagram_client_id');
-			$client_secret = get_option('instagram_client_secret');
+			if( isset( $this->access_token ) ) {
+				echo '<pre>' . print_r($this->access_token, true) . '</pre>';
+			}
+
 			if( $client_id !== false && $client_secret !== false ) : ?>
+			
 			<h3><? _e('Authenticate with instagram', 'sf_wp_instagram') ?></h3>
-			<a href="<? echo $this->url_oauth ?>authorize/?client_id=<? echo $client_id ?>&redirect_uri=<? echo $htis->oauth_redirect_url ?>&response_type=code" class="button-primary"><? _e('Authenticate', 'sf_wp_instagram') ?></a>
+			<a href="<? echo $this->url_oauth ?>authorize/?client_id=<? echo $client_id ?>&redirect_uri=<? echo urlencode( $this->oauth_redirect_url ) ?>&response_type=code" class="button-primary"><? _e('Authenticate', 'sf_wp_instagram') ?></a>
+			
 			<? endif; ?>
-			<? if(false) : ?>
-				<h3><? _e('Test', 'sf_wp_instagram') ?></h3>
-				<form action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
-					<input type="hidden" name="sfwp_instagram_action" value="test" />
-					<input type="hidden" name="_wpnonce" value="<? echo wp_create_nonce( 'sfwp_instagram_action_test' ) ?>" />
-					<p class="submit"><input type="submit" value="<? _e('Test Settings', 'sf_wp_instagram') ?>" class="button-primary" /></p>
-				</form>
-				<? if( isset($this->result) ) : ?>
-				<h3><? _e('Test Result', 'sf_wp_instagram') ?></h3>
-				<? echo '<pre>' . print_r( $this->result, true) . '</pre>'; ?>
-				<? endif; ?>
+			
+			<h3><? _e('Test', 'sf_wp_instagram') ?></h3>
+			<form action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
+				<input type="hidden" name="sfwp_instagram_action" value="test" />
+				<input type="hidden" name="_wpnonce" value="<? echo wp_create_nonce( 'sfwp_instagram_action_test' ) ?>" />
+				<p class="submit"><input type="submit" value="<? _e('Test Settings', 'sf_wp_instagram') ?>" class="button-primary" /></p>
+			</form>
+			<? if( isset($this->result) ) : ?>
+			<h3><? _e('Test Result', 'sf_wp_instagram') ?></h3>
+			<? echo '<pre>' . print_r( $this->result, true) . '</pre>'; ?>
 			<? endif; ?>
 		</div>
 		<?
@@ -157,16 +163,13 @@ class SfWpInstagram
 		if( !$this->is_ready ) {
 			return false;
 		}
-
-		$this->result = $this->do_request('time_entries.json?group_by=year');
+		$this->result = instagram_get_hashtag_media_count('sfkochen');
 	}
 
 	private function oauth() {
-		echo '<pre>oauth()</pre>';
 		if( !isset($_REQUEST['error']) ) {
 			
 			if( isset($_REQUEST['code']) ) {
-				echo '<pre>oauth() has code</pre>';
 				$code = $_REQUEST['code'];
 
 				$result = json_decode( $this->do_request( 'access_token', array( 'client_id' => $this->client_id, 'client_secret' => $this->client_secret, 'grant_type' => 'authorization_code', 'redirect_uri' => $this->oauth_redirect_url, 'code' => $code ), $this->url_oauth ) );
@@ -174,12 +177,14 @@ class SfWpInstagram
 				update_option('instagram_access_token', $result->access_token );
 			}
 
-		} else {
-			echo '<pre>oauth() has error</pre>';
 		}
 	}
 
-	public function do_request( $endpoint, $data, $url = null ) {
+	public function do_authenticated_request( $endpoint, $post_data = false ) {
+		return $this->do_request( $endpoint . '?access_token=' . $this->access_token, $post_data );
+	}
+
+	private function do_request( $endpoint, $post_data = false, $url = null ) {
 		if( !$this->is_ready ) {
 			return false;
 		}
@@ -190,20 +195,25 @@ class SfWpInstagram
 		
 		$curl = curl_init();
 
-		curl_setopt($curl, CURLOPT_POST, 1);
-
-		if ($data) {
-			curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+		if ($post_data) {
+			curl_setopt($curl, CURLOPT_POST, 1);
+			curl_setopt($curl, CURLOPT_POSTFIELDS, $post_data);
 		}
 		
-		curl_setopt( $curl, CURLOPT_URL, $url . $method );
+		curl_setopt( $curl, CURLOPT_URL, $url . $endpoint );
 		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, 1 );
 
 		return curl_exec($curl);
 	}
 }
 $sf_wp_instagram = SfWpInstagram::instance();
-function mite_get_time_entries_by_year() {
-	return json_decode( SfWpInstagram::instance()->do_request( 'time_entries.json?group_by=year' ) );
+function instagram_get_user_media_count( $user_id ) {
+	$user = json_decode( SfWpInstagram::instance()->do_authenticated_request( 'users/' . $user_id . '/' ) );
+	return $user->data->counts->media;
+}
+
+function instagram_get_hashtag_media_count( $hashtag ) {
+	$user = json_decode( SfWpInstagram::instance()->do_authenticated_request( 'tags/' . $hashtag . '/' ) );
+	return $user->data->media_count;
 }
 ?>
