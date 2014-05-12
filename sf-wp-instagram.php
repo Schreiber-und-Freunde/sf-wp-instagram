@@ -163,7 +163,7 @@ class SfWpInstagram
 		if( !$this->is_ready ) {
 			return false;
 		}
-		$this->result = instagram_get_hashtag_media_count('sfkochen');
+		$this->result = instagram_get_users_media('self');
 	}
 
 	private function oauth() {
@@ -205,8 +205,46 @@ class SfWpInstagram
 
 		return curl_exec($curl);
 	}
+
+	private function extract_media_from_feed( $feed ) {
+		$media_array = array();
+		
+		foreach ($feed->data as $media_item) {
+			$media = new StdClass;
+			$media->date = $media_item->created_time;
+			$media->link = $media_item->link;
+			$media->caption = $media_item->caption->text;
+
+			if( $media_item->type === 'image' ) {
+				$media->media_url = $media_item->images->standard_resolution->url;
+			}
+
+			$media_array[] = $media;
+		}
+		return $media_array;
+	}
+
+	public function get_users_media( $user_id = 'user', $images_only = true ) {
+		
+		$feed = json_decode( $this->do_authenticated_request( 'users/' . $user_id . '/media/recent/' ) );
+		$media_array = array();
+		$media_array = $this->extract_media_from_feed( $feed );
+
+		while ( isset($feed->pagination) && isset($feed->pagination->next_url) ) {
+			$feed =  json_decode( $this->do_request( $feed->pagination->next_url, false, '' ) );
+			$media_array = array_merge($media_array, $this->extract_media_from_feed( $feed ) );
+		}
+
+		return $media_array;
+	}
 }
 $sf_wp_instagram = SfWpInstagram::instance();
+
+function instagram_get_user( $user_id ) {
+	$user = json_decode( SfWpInstagram::instance()->do_authenticated_request( 'users/' . $user_id . '/' ) );
+	return $user;
+}
+
 function instagram_get_user_media_count( $user_id ) {
 	$user = json_decode( SfWpInstagram::instance()->do_authenticated_request( 'users/' . $user_id . '/' ) );
 	return $user->data->counts->media;
@@ -216,4 +254,7 @@ function instagram_get_hashtag_media_count( $hashtag ) {
 	$user = json_decode( SfWpInstagram::instance()->do_authenticated_request( 'tags/' . $hashtag . '/' ) );
 	return $user->data->media_count;
 }
-?>
+
+function instagram_get_users_media( $user_id ) {
+	return SfWpInstagram::instance()->get_users_media( $user_id );
+}
