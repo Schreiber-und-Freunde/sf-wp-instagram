@@ -216,7 +216,7 @@ class SfWpInstagram
 			$media->caption = $media_item->caption->text;
 
 			if( $media_item->type === 'image' ) {
-				$media->media_url = $media_item->images->standard_resolution->url;
+				$media->images = $media_item->images;
 			}
 
 			$media_array[] = $media;
